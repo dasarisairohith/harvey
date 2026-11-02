@@ -24,7 +24,7 @@ Start by checking what state things are in. Don't dump a wall of setup steps —
 **If nothing is set up:**
 > "This is Harvey — an autonomous AI sales agent. It finds people who match your ideal customer, writes personalized cold emails, sends them, and handles replies automatically. It runs on your Claude Max subscription so there's no extra cost.
 >
-> Let me help you get it set up. It takes about 5 minutes. First, let me install the dependencies..."
+> Let me help you get it set up. It takes about 5 minutes. First, I’ll check Python and Claude Code, then install the dependencies..."
 
 **If partially set up:**
 > "Looks like Harvey is partially configured. [specific thing] is done but [specific thing] still needs setting up. Want me to pick up where you left off?"
@@ -62,6 +62,18 @@ Walk through these steps conversationally. Ask one thing at a time. Don't overwh
 
 ### Step 1: Install Dependencies
 
+On Windows, use PowerShell:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+```
+
+If PowerShell blocks activation, use `.\.venv\Scripts\python.exe -m pip install -e .` and run Harvey with `.\.venv\Scripts\harvey.exe`.
+
+On macOS or Linux:
+
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e .
 ```
@@ -70,6 +82,8 @@ Then install the browser for LinkedIn prospecting:
 ```bash
 python -m playwright install chromium
 ```
+
+Harvey uses Claude Code by default. On Windows, if `claude` is missing, install Claude Code with `winget install --id Anthropic.ClaudeCode --exact`, open a new PowerShell window, and run `claude login`. Never ask the user to paste credentials or an API key into chat.
 
 ### Step 2: API Keys (`.env`)
 

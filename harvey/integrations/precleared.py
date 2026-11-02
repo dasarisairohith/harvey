@@ -339,6 +339,14 @@ class PreclearedClient:
             # Matched against the company's current officers. Precleared
             # doesn't store it.
             payload["recipient_name"] = name
+        try:
+            for value in payload.values():
+                if isinstance(value, str):
+                    value.encode("utf-8")
+        except UnicodeEncodeError:
+            return Clearance(allowed=False, held=True, pause_checks=True,
+                             hold_kind="unavailable",
+                             reason="Precleared request contains text that can't be sent")
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "harvey (+https://github.com/ethanplusai/harvey)",

@@ -10,6 +10,7 @@ upgrade cleanly in place.
 """
 
 import json
+import re
 import uuid
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -521,6 +522,24 @@ MIGRATIONS: list[str] = [
     """,
 ]
 
+
+_ADD_COLUMN = re.compile(
+    r"(?im)^[ \t]*ALTER TABLE[ \t]+([A-Za-z_][A-Za-z0-9_]*)"
+    r"[ \t]+ADD COLUMN[ \t]+([A-Za-z_][A-Za-z0-9_]*)[^\r\n;]*;[ \t]*$"
+)
+
+
+async def _skip_existing_add_columns(db: aiosqlite.Connection, script: str) -> str:
+    """Make an interrupted ADD COLUMN migration safe to resume."""
+    for match in reversed(list(_ADD_COLUMN.finditer(script))):
+        table, column = match.group(1), match.group(2)
+        async with db.execute(f'PRAGMA table_info("{table}")') as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+        if column in columns:
+            script = script[:match.start()] + script[match.end():]
+    return script
+
+
 BRAIN_PROVIDERS = ("claude", "codex")
 _USAGE_LOG_COLUMN = {"claude": "claude_calls", "codex": "codex_calls"}
 
@@ -579,6 +598,7 @@ class StateManager:
 
             for target, script in enumerate(MIGRATIONS, start=1):
                 if version < target:
+                    script = await _skip_existing_add_columns(db, script)
                     await db.executescript(script)
                     await db.execute(f"PRAGMA user_version = {target}")
                     await db.commit()
@@ -2646,4 +2666,3 @@ class StateManager:
             # Claude budget the rest of the loop is rationing.
             "unprofiled": await self.count_companies_needing_profile(),
         }
-

@@ -6,7 +6,7 @@ import json
 import pytest
 import pytest_asyncio
 
-from harvey.state import StateManager
+from harvey.state import MIGRATIONS, StateManager
 from harvey.models.company import Company
 from harvey.models.prospect import Prospect
 from harvey.models.campaign import Campaign, EmailStep
@@ -36,6 +36,28 @@ async def test_init_db_creates_parent_dirs(tmp_path):
     sm = StateManager(str(tmp_path / "nested" / "dirs" / "test.db"))
     await sm.init_db()
     assert os.path.exists(sm.db_path)
+
+
+@pytest.mark.asyncio
+async def test_init_db_resumes_migration_after_column_was_added(tmp_path):
+    sm = StateManager(str(tmp_path / "partial-migration.db"))
+    async with sm._connect() as db:
+        for version, script in enumerate(MIGRATIONS[:3], start=1):
+            await db.executescript(script)
+            await db.execute(f"PRAGMA user_version = {version}")
+            await db.commit()
+        await db.execute("ALTER TABLE prospects ADD COLUMN email_status TEXT DEFAULT ''")
+        await db.commit()
+
+    await sm.init_db()
+
+    async with sm._connect() as db:
+        async with db.execute("PRAGMA user_version") as cursor:
+            (version,) = await cursor.fetchone()
+        async with db.execute("PRAGMA table_info(prospects)") as cursor:
+            columns = [row[1] for row in await cursor.fetchall()]
+    assert version == len(MIGRATIONS)
+    assert columns.count("email_status") == 1
 
 
 # ── Companies ──
